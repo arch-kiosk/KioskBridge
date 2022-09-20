@@ -1,2 +1,2 @@
-# KioskBridge for iOS
+# Kiosk Bridge for iOS
 
