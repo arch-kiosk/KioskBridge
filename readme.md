@@ -1,2 +1,2 @@
-# 💼 KioskBridge for iOS
+# KioskBridge for iOS
 
