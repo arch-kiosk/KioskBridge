@@ -23,6 +23,9 @@ struct ApiLoginResponse: Codable {
     var token: String
 }
 
+
+
+
 struct ApiDock: Codable {
     var dock_id: String
 }
