@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct KioskBridgeApp: App {
+    @State var openedUrl: URL? = nil
     var body: some Scene {
         WindowGroup {
-            KioskBridgeView()
+            KioskBridgeView(openedUrl: $openedUrl)
+                .onOpenURL { url in
+                    openedUrl = url
+                        }
         }
     }
 }

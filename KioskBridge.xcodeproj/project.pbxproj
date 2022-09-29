@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		494017DE28E384DA0034A379 /* multipartformstuff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494017DD28E384DA0034A379 /* multipartformstuff.swift */; };
 		4985F85228B1AEAD0068AD38 /* KioskBridgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4985F85128B1AEAD0068AD38 /* KioskBridgeApp.swift */; };
 		4985F85428B1AEAD0068AD38 /* KioskBridgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4985F85328B1AEAD0068AD38 /* KioskBridgeView.swift */; };
 		4985F85628B1AEAD0068AD38 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4985F85528B1AEAD0068AD38 /* Assets.xcassets */; };
@@ -14,11 +15,28 @@
 		4985F86028B29C240068AD38 /* KioskBridgeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4985F85F28B29C240068AD38 /* KioskBridgeSettings.swift */; };
 		4985F86228B2B05D0068AD38 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4985F86128B2B05D0068AD38 /* SettingsView.swift */; };
 		498F130328DA6CAD0034CB7C /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 498F130228DA6CAD0034CB7C /* .gitignore */; };
+		49B9735C28DD120F008478FE /* FMP12File.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B9735B28DD120F008478FE /* FMP12File.swift */; };
+		49B9735E28DD690E008478FE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B9735D28DD690E008478FE /* AppDelegate.swift */; };
 		49DD5BF328C16A4800AB8D1B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DD5BF228C16A4800AB8D1B /* AppState.swift */; };
 		49FB606628BEDEC9008DE047 /* KioskApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FB606528BEDEC9008DE047 /* KioskApi.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		4938BD3F28DBC31A009E0BCB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		4938BD4428DBC3D8009E0BCB /* KioskBridgeRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KioskBridgeRelease.entitlements; sourceTree = "<group>"; };
+		494017DD28E384DA0034A379 /* multipartformstuff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = multipartformstuff.swift; sourceTree = "<group>"; };
 		4985F84E28B1AEAD0068AD38 /* Kiosk Bridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kiosk Bridge.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4985F85128B1AEAD0068AD38 /* KioskBridgeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskBridgeApp.swift; sourceTree = "<group>"; };
 		4985F85328B1AEAD0068AD38 /* KioskBridgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskBridgeView.swift; sourceTree = "<group>"; };
@@ -27,6 +45,10 @@
 		4985F85F28B29C240068AD38 /* KioskBridgeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskBridgeSettings.swift; sourceTree = "<group>"; };
 		4985F86128B2B05D0068AD38 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		498F130228DA6CAD0034CB7C /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		49B9735A28DCFCB4008478FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		49B9735B28DD120F008478FE /* FMP12File.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMP12File.swift; sourceTree = "<group>"; };
+		49B9735D28DD690E008478FE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		49B9735F28DE0BB7008478FE /* KioskBridge.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KioskBridge.entitlements; sourceTree = "<group>"; };
 		49DD5BF228C16A4800AB8D1B /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		49FB606528BEDEC9008DE047 /* KioskApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskApi.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -42,6 +64,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		494017D528E3709E0034A379 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		4985F84528B1AEAD0068AD38 = {
 			isa = PBXGroup;
 			children = (
@@ -49,6 +78,7 @@
 				49DD5BF228C16A4800AB8D1B /* AppState.swift */,
 				4985F85028B1AEAD0068AD38 /* KioskBridge */,
 				4985F84F28B1AEAD0068AD38 /* Products */,
+				494017D528E3709E0034A379 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -63,6 +93,9 @@
 		4985F85028B1AEAD0068AD38 /* KioskBridge */ = {
 			isa = PBXGroup;
 			children = (
+				49B9735F28DE0BB7008478FE /* KioskBridge.entitlements */,
+				49B9735A28DCFCB4008478FE /* Info.plist */,
+				4938BD4428DBC3D8009E0BCB /* KioskBridgeRelease.entitlements */,
 				4985F85128B1AEAD0068AD38 /* KioskBridgeApp.swift */,
 				4985F85328B1AEAD0068AD38 /* KioskBridgeView.swift */,
 				49FB606528BEDEC9008DE047 /* KioskApi.swift */,
@@ -70,6 +103,9 @@
 				4985F85528B1AEAD0068AD38 /* Assets.xcassets */,
 				4985F85728B1AEAD0068AD38 /* Preview Content */,
 				4985F85F28B29C240068AD38 /* KioskBridgeSettings.swift */,
+				49B9735B28DD120F008478FE /* FMP12File.swift */,
+				49B9735D28DD690E008478FE /* AppDelegate.swift */,
+				494017DD28E384DA0034A379 /* multipartformstuff.swift */,
 			);
 			path = KioskBridge;
 			sourceTree = "<group>";
@@ -92,12 +128,15 @@
 				4985F84A28B1AEAD0068AD38 /* Sources */,
 				4985F84B28B1AEAD0068AD38 /* Frameworks */,
 				4985F84C28B1AEAD0068AD38 /* Resources */,
+				4938BD3F28DBC31A009E0BCB /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = KioskBridge;
+			packageProductDependencies = (
+			);
 			productName = KioskBridge;
 			productReference = 4985F84E28B1AEAD0068AD38 /* Kiosk Bridge.app */;
 			productType = "com.apple.product-type.application";
@@ -126,6 +165,9 @@
 				Base,
 			);
 			mainGroup = 4985F84528B1AEAD0068AD38;
+			packageReferences = (
+				494017D228E203B00034A379 /* XCRemoteSwiftPackageReference "SwiftUIX" */,
+			);
 			productRefGroup = 4985F84F28B1AEAD0068AD38 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -153,11 +195,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49B9735E28DD690E008478FE /* AppDelegate.swift in Sources */,
 				4985F85428B1AEAD0068AD38 /* KioskBridgeView.swift in Sources */,
+				49B9735C28DD120F008478FE /* FMP12File.swift in Sources */,
 				4985F85228B1AEAD0068AD38 /* KioskBridgeApp.swift in Sources */,
 				4985F86228B2B05D0068AD38 /* SettingsView.swift in Sources */,
 				49DD5BF328C16A4800AB8D1B /* AppState.swift in Sources */,
 				49FB606628BEDEC9008DE047 /* KioskApi.swift in Sources */,
+				494017DE28E384DA0034A379 /* multipartformstuff.swift in Sources */,
 				4985F86028B29C240068AD38 /* KioskBridgeSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -284,15 +329,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KioskBridge/KioskBridge.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"KioskBridge/Preview Content\"";
 				DEVELOPMENT_TEAM = Z7P37A2VT9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KioskBridge/Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -314,15 +363,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KioskBridge/KioskBridgeRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"KioskBridge/Preview Content\"";
 				DEVELOPMENT_TEAM = Z7P37A2VT9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KioskBridge/Info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -361,6 +414,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		494017D228E203B00034A379 /* XCRemoteSwiftPackageReference "SwiftUIX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftUIX/SwiftUIX";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 4985F84628B1AEAD0068AD38 /* Project object */;
 }

@@ -8,16 +8,16 @@
 import Foundation
 
 enum PersistedBridgeState:Int, Codable {
-    case idle, downloaded, sent_to_filemaker, needs_upload
+    case idle, downloaded, sent_to_filemaker, needs_upload, is_uploaded
 }
 
 class AppState: ObservableObject, Codable {
     enum CodingKeys: CodingKey {
-        case state
+        case state, sentFileName
     }
     
-    enum DockStates {case not_ready, prepared_for_download, uploaded}
-    @Published var dock_state: DockStates = .not_ready
+    enum DockStates {case unknown, not_ready, prepared_for_download, uploaded}
+    @Published var dock_state: DockStates = .unknown
     
     @Published var api_state: ApiStatus = .disconnected
     @Published var api_token: String = ""
@@ -26,10 +26,13 @@ class AppState: ObservableObject, Codable {
     //    @Published var app_state: AppStates = .idle
     @Published var settings: KioskBridgeSettings = KioskBridgeSettings()
     @Published var state: PersistedBridgeState = .idle
+    @Published var sentFileName: String = ""
     
     @Published var app_state_message: String = ""
     @Published var transitions: [String] = []
     @Published var app_error_state: String = ""
+    @Published var app_error_is_warning: Bool = false
+    
     var debug = false
     
     init() {
@@ -39,11 +42,13 @@ class AppState: ObservableObject, Codable {
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         state = PersistedBridgeState(rawValue: try container.decode(Int.self, forKey: .state))!
+        sentFileName = try container.decode(String.self, forKey: .sentFileName)
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(state, forKey: .state)
+        try container.encode(sentFileName, forKey: .sentFileName)
     }
     
     func save() {
@@ -51,7 +56,11 @@ class AppState: ObservableObject, Codable {
         print("saving app_state...")
         if let encoded = try? JSONEncoder().encode(self) {
             UserDefaults.standard.set(encoded, forKey: "KioskBridgeAppState")
+            print("App_state saved")
+        } else {
+            print("Error decoding!")
         }
+        
     }
     
     func load() {
@@ -66,6 +75,7 @@ class AppState: ObservableObject, Codable {
         if let savedData = UserDefaults.standard.data(forKey: "KioskBridgeAppState") {
             if let decodedState = try? JSONDecoder().decode(AppState.self, from: savedData) {
                 self.state = decodedState.state
+                self.sentFileName = decodedState.sentFileName
             }
         }
     }
@@ -78,7 +88,7 @@ class AppState: ObservableObject, Codable {
     func setDockStateFromStr(dock_state_str: String) {
         switch (dock_state_str) {
         case "prepared for download", "in the field": self.dock_state = .prepared_for_download
-        case "uploaded": self.dock_state = .uploaded
+        case "uploaded - needs import": self.dock_state = .uploaded
         default: dock_state = .not_ready
         }
         process_app_state()
@@ -88,14 +98,18 @@ class AppState: ObservableObject, Codable {
         app_error_state = ""
         print("reprocessed AppState")
         var new_transitions: [String] = []
+        app_error_is_warning = false
         switch (state) {
         case .idle:
             if (api_state >= .docked) {
                 if (dock_state == .prepared_for_download) {
                     new_transitions = ["download from Kiosk"]
                 } else {
-                    app_error_state = "Dock not ready for download"
+                    app_error_state = "Dock not prepared for download, yet"
+                    app_error_is_warning = true
                 }
+            } else {
+                new_transitions.append("please connect to the Kiosk network for the next step (and then hit this button)")
             }
         case .downloaded:
             new_transitions = ["send to filemaker"]
@@ -110,9 +124,19 @@ class AppState: ObservableObject, Codable {
         case .needs_upload:
             if (api_state >= .docked) {
                 new_transitions.append("upload to Kiosk")
+            } else {
+                new_transitions.append("please connect to the Kiosk network for the next step (and then hit this button)")
+            }
+        case .is_uploaded:
+            if (api_state >= .docked) {
+                if (dock_state == .uploaded) {
+                    new_transitions.append("upload to Kiosk again")
+                }   
+            }
+            else {
+                new_transitions.append("please connect to the Kiosk network for the next step (and then hit this button)")
             }
         }
-        print("changing transitions")
         transitions = new_transitions
     }
     
@@ -124,13 +148,19 @@ class AppState: ObservableObject, Codable {
         switch (state) {
             
         case .idle:
-            return "idle"
+            if dock_state == .prepared_for_download {
+                return "ready for download"
+            } else {
+                return "idle: Waiting for the dock to be prepared for download"
+            }
         case .downloaded:
-            return "downloaded"
-        case .needs_upload:
-            return "needs_upload"
+            return "downloaded: Ready to send the file to FileMaker"
         case .sent_to_filemaker:
-            return "sent_to_filemaker"
+            return "waiting to receive a database from FileMaker"
+        case .needs_upload:
+            return "ready to upload the database back to Kiosk"
+        case .is_uploaded:
+            return "waiting for the uploaded data to be imported in Kiosk"
         }
     }
 }
