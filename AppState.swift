@@ -21,6 +21,7 @@ class AppState: ObservableObject, Codable {
     
     @Published var api_state: ApiStatus = .disconnected
     @Published var api_token: String = ""
+    @Published var csrf_token: String = ""
     
     //    enum AppStates {case idle, downloaded, needs_upload}
     //    @Published var app_state: AppStates = .idle

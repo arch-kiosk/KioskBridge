@@ -334,7 +334,9 @@ struct KioskBridgeView: View {
                         throw(APIError.runtimeError("Cannot decode response"))
                     }
                 app_state.api_token = loginResponse.token
+                app_state.csrf_token = loginResponse.csrf
                 print("Token: \(app_state.api_token)")
+                print("CSRF Token: \(app_state.csrf_token)")
                 app_state.setApiState(api_state: .connected)
             }
         } catch {
@@ -435,12 +437,31 @@ struct KioskBridgeView: View {
         let session = URLSession(configuration: sessionConfiguration)
         downloadTask = session.downloadTask(with: url) { localURL, urlResponse, error in
             print(error ?? "no error when downloading")
+            observation?.invalidate()
+            downloadTask = nil
             guard let urlResponse = urlResponse else {
-                print("no urlResponse")
+                alertTitle = "The download wasn't sucessful"
+                alertMessage = "The download's did not come back with a urlResponse. Something is wrong here. This should not happen."
+                alertShown = true
                 return
             }
+            if let httpResponse = urlResponse as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                alertTitle = "The download wasn't sucessful"
+                alertMessage = "The server did not send the file (http error code \(httpResponse.statusCode)."
+                alertShown = true
+                return
+            }
+
             guard let filename = urlResponse.suggestedFilename else {
-                print("no suggested filename")
+                alertTitle = "The download wasn't sucessful"
+                alertMessage = "The download's response did not have a suggestedFilename attribute. Something is wrong here. This should not happen."
+                alertShown = true
+                return
+            }
+            if filename == "" {
+                alertTitle = "The download wasn't sucessful"
+                alertMessage = "The download did not suggest a filename, so something is wrong here. This should not happen."
+                alertShown = true
                 return
             }
             guard let localURL = localURL else {
@@ -580,7 +601,8 @@ struct KioskBridgeView: View {
             let sessionConfiguration = URLSessionConfiguration.default
 
             sessionConfiguration.httpAdditionalHeaders = [
-                "Authorization": "Bearer \(app_state.api_token)"
+                "Authorization": "Bearer \(app_state.api_token)",
+                "X-CSRFToken": app_state.csrf_token
             ]
             let session = URLSession(configuration: sessionConfiguration)
 
@@ -599,6 +621,18 @@ struct KioskBridgeView: View {
                                 } else {
                                     alertMessage += " \(error)"
                                 }
+                                alertShown = true
+                                return
+                            }
+                            guard let response = response else {
+                                alertTitle = "The upload wasn't sucessful"
+                                alertMessage = "The upload did not come back with a urlResponse. Something is wrong here. This should not happen."
+                                alertShown = true
+                                return
+                            }
+                            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                                alertTitle = "The upload wasn't sucessful"
+                                alertMessage = "The server did not accept the file (http error code \(httpResponse.statusCode)."
                                 alertShown = true
                                 return
                             }

@@ -11,7 +11,7 @@ enum ApiStatus: Comparable {
     case disconnected, connecting, unauthorized, error, connected, nodock, wrongdocktype, docked
 }
 
-let api_login_path = "/api/v1/login"
+let api_login_path = "/api/v2/login"
 
 struct ApiLogin: Codable {
     var userid: String
@@ -21,6 +21,7 @@ struct ApiLogin: Codable {
 
 struct ApiLoginResponse: Codable {
     var token: String
+    var csrf: String
 }
 
 struct ApiDock: Codable {
