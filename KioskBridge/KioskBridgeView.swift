@@ -7,7 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
-let version = "0.1"
+let version = "0.2.1"
 
 enum AnError: Error {
     case runtimeError(String)
@@ -103,7 +103,8 @@ struct KioskBridgeView: View {
                 SettingsView(settings: app_state.settings, appState: app_state)
                     .onDisappear() {
                         if (app_state.state == .idle) {
-                            try!clearAllDocuments()
+                            try?clearAllDocuments()
+                            try?clearAllDocuments(InBox: true)
                         }
                         connectToKiosk()
                     }
@@ -182,7 +183,7 @@ struct KioskBridgeView: View {
             self.alertMessage = ""
             
             do {
-                if (app_state.state == .sent_to_filemaker || app_state.state == .needs_upload) {
+                if (app_state.state == .sent_to_filemaker || app_state.state == .needs_upload || (app_state.state == .is_uploaded && app_state.dock_state == .uploaded)) {
 
                     //Check if filename matches
                     let receivedFileName = openedUrl!.lastPathComponent

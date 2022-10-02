@@ -50,16 +50,14 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                     }
                     Spacer()
-                    VStack {
-                        Button("reset app state")  {
-                            askForReset = true
-                        }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .foregroundColor(Color("redish"))
-                        .padding()
-   }
+                    Button("reset app state")  {
+                        askForReset = true
+                    }
+                    .buttonStyle(BorderlessButtonStyle())
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .foregroundColor(Color("redish"))
+                    .padding()
                 }
-                    
             }
             .alert("Do you really want to connect to a different dock? KioskBridge will reset in this case.", isPresented: $askForDockChange) {
                 Button("Yes") {
