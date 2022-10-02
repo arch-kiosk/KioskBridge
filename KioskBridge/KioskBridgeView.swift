@@ -134,6 +134,7 @@ struct KioskBridgeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .onChange(of: openedUrl) { newValue in
+                print("openedUrl changed")
                 if (newValue != nil) {
                         processIncomingFile()
                 }
@@ -186,15 +187,23 @@ struct KioskBridgeView: View {
                     //Check if filename matches
                     let receivedFileName = openedUrl!.lastPathComponent
                     if receivedFileName != app_state.sentFileName {
-                        self.alertTitle = "This doesn't look right"
-                        self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName)). Please try again with the correct file. "
-                        throw AnError.runtimeError("wrong file")
+                        let sentFileNameWithoutExt = app_state.sentFileName.lowercased().replacingOccurrences(of: ".fmp12", with: "")
+                        if receivedFileName.lowercased().contains(sentFileNameWithoutExt) {
+                            self.alertTitle = "Please try again"
+                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName)). This can be due to an earlier internal error, so please try to send the file again after you closed this message."
+                            throw AnError.runtimeError("suspicious filename")
+                        } else {
+                            self.alertTitle = "This doesn't look right"
+                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName)). Please try again with the correct file. "
+                            throw AnError.runtimeError("wrong file")
+                        }
                     }
-                    //erase existing file
                     try clearAllDocuments()
-                    
+
                     //copy incoming file to stored file
                     do {
+                        //erase existing file
+
                         let fm = FileManager.default
                         var docUrl = try FileManager.default.url(
                             for: .documentDirectory,
@@ -208,7 +217,9 @@ struct KioskBridgeView: View {
                         app_state.save()
                         self.alertTitle = "Thanks for the file"
                         self.alertMessage = "The file has been successfully received from FileMaker and looks right, as far as I can tell."
-                        alertShown = true
+                        DispatchQueue.main.async {
+                            self.alertShown = true
+                        }
                     } catch {
                         self.alertTitle = "Internal Error"
                         self.alertMessage = "The received file could not be stored. Pehaps try again?"
@@ -223,12 +234,15 @@ struct KioskBridgeView: View {
             } catch {
                 print(error)
                 if self.alertTitle != "" {
-                    alertShown = true
+                    DispatchQueue.main.async {
+                        self.alertShown = true
+                    }
                 }
-                openedUrl = nil
 
             }
         }
+        openedUrl = nil
+        try?clearAllDocuments(InBox: true)
     }
     
     func triggerTransition(transition_name: String) {
