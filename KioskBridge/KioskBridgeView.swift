@@ -7,7 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
-let version = "0.2.1"
+let version = "0.2.2"
 
 enum AnError: Error {
     case runtimeError(String)
@@ -53,6 +53,9 @@ struct KioskBridgeView: View {
                 try await getDockInfo()
             } catch {
                 print("Error in connectToKiosk: \(error)")
+                alertMessage = "Error in connectToKiosk: \(error). This should not have happened. Please get support."
+                alertTitle = "Error connecting to Kiosk"
+                alertShown = true
             }
             runningTask = nil
         }
@@ -365,7 +368,7 @@ struct KioskBridgeView: View {
             return
         }
         
-        let url_str = "\(settings.server_url)\(api_dock_path)?dock_id=\(settings.dock_id)"
+        let url_str = "\(settings.server_url)\(api_dock_path)?dock_id=\(settings.dock_id)".replacingOccurrences(of: " ", with: "%20")
         guard let url = URL(string: url_str) else {
             throw(APIError.runtimeError("Cannot build url"))
         }

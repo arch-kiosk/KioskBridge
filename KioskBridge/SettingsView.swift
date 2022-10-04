@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State var formerDockId = ""
     @State var askForReset = false
     @State var askForDockChange = false
+    @State var wrongDockId = false
     @ObservedObject var appState: AppState
     
     @Environment(\.dismiss) var dismiss
@@ -57,7 +58,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .foregroundColor(Color("redish"))
                     .padding()
-                }
+                }.disableAutocorrection(true)
             }
             .alert("Do you really want to connect to a different dock? KioskBridge will reset in this case.", isPresented: $askForDockChange) {
                 Button("Yes") {
@@ -76,6 +77,13 @@ struct SettingsView: View {
                     //Not doing anything
                 }
             }
+            .alert(isPresented: $wrongDockId) {
+                        Alert(title: Text("Invalid Dock-Id "),
+                              message: Text("There is a space in the dock id. Spaces and other special characters are not supported right now."),
+                              dismissButton: .default(Text("Got it!")))
+            }
+
+            
             .onChange(of: settings.dock_id) { [dock_id = settings.dock_id] newValue in
                 if (formerDockId == "") {
                     formerDockId = dock_id
@@ -102,6 +110,10 @@ struct SettingsView: View {
         }
     }
     func saveAndDismiss() {
+        if settings.dock_id.contains(" ") {
+          wrongDockId = true
+            return
+        }
         settings.save()
         appState.save()
         dismiss()

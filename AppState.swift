@@ -83,7 +83,7 @@ class AppState: ObservableObject, Codable {
     
     func setApiState(api_state: ApiStatus) {
         self.api_state = api_state
-        process_app_state()
+        self.process_app_state()
     }
     
     func setDockStateFromStr(dock_state_str: String) {
