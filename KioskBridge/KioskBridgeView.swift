@@ -137,21 +137,22 @@ struct KioskBridgeView: View {
                 connectToKiosk()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .onChange(of: openedUrl) { newValue in
+            // Modern SwiftUI onChange syntax using the closure tuple:
+            .onChange(of: openedUrl) { _, newValue in
                 print("openedUrl changed")
-                if (newValue != nil) {
-                        processIncomingFile()
+                if newValue != nil {
+                    processIncomingFile()
                 }
             }
-            .onChange(of: scenePhase) { newPhase in
-                            if newPhase == .active {
-                                connectToKiosk()
-                            } else if newPhase == .inactive {
-                                print("Inactive")
-                            } else if newPhase == .background {
-                                print("Background")
-                            }
-                        }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    connectToKiosk()
+                } else if newPhase == .inactive {
+                    print("Inactive")
+                } else if newPhase == .background {
+                    print("Background")
+                }
+            }            
             .onReceive(timer) { input in
                 if (app_state.api_state > .connected) {
                     print( input )
@@ -179,75 +180,85 @@ struct KioskBridgeView: View {
     
     
     func processIncomingFile() {
-        if (openedUrl != nil) {
-            isShareSheetPresented = false
-            print("Received file: \(openedUrl!.absoluteString)")
-            self.alertTitle = ""
-            self.alertMessage = ""
-            
-            do {
-                if (app_state.state == .sent_to_filemaker || app_state.state == .needs_upload || (app_state.state == .is_uploaded && app_state.dock_state == .uploaded)) {
+    guard let sourceUrl = openedUrl else { return } // Safe unwrapping
+    
+    isShareSheetPresented = false
+    print("Received file: \(sourceUrl.absoluteString)")
+    self.alertTitle = ""
+    self.alertMessage = ""
+    
+    // Start accessing the secure resource sent by iPadOS
+    let accessSecureResource = sourceUrl.startAccessingSecurityScopedResource()
+    
+    // Ensure we ALWAYS release the resource when this method block exits
+    defer {
+        if accessSecureResource {
+            sourceUrl.stopAccessingSecurityScopedResource()
+        }
+    }
+    
+    do {
+        if (app_state.state == .sent_to_filemaker || app_state.state == .needs_upload || (app_state.state == .is_uploaded && app_state.dock_state == .uploaded)) {
 
-                    //Check if filename matches
-                    let receivedFileName = openedUrl!.lastPathComponent
-                    if receivedFileName != app_state.sentFileName {
-                        let sentFileNameWithoutExt = app_state.sentFileName.lowercased().replacingOccurrences(of: ".fmp12", with: "")
-                        if receivedFileName.lowercased().contains(sentFileNameWithoutExt) {
-                            self.alertTitle = "Please try again"
-                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName)). This can be due to an earlier internal error, so please try to send the file again after you closed this message."
-                            throw AnError.runtimeError("suspicious filename")
-                        } else {
-                            self.alertTitle = "This doesn't look right"
-                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName)). Please try again with the correct file. "
-                            throw AnError.runtimeError("wrong file")
-                        }
-                    }
-                    try clearAllDocuments()
-
-                    //copy incoming file to stored file
-                    do {
-                        //erase existing file
-
-                        let fm = FileManager.default
-                        var docUrl = try FileManager.default.url(
-                            for: .documentDirectory,
-                            in: .userDomainMask,
-                            appropriateFor: nil,
-                            create: false)
-                        docUrl.appendPathComponent(receivedFileName)
-                        try fm.moveItem(at: openedUrl!, to: docUrl)
-                        print("File moved to \(docUrl.absoluteString)")
-                        app_state.state = .needs_upload
-                        app_state.save()
-                        self.alertTitle = "Thanks for the file"
-                        self.alertMessage = "The file has been successfully received from FileMaker and looks right, as far as I can tell."
-                        DispatchQueue.main.async {
-                            self.alertShown = true
-                        }
-                    } catch {
-                        self.alertTitle = "Internal Error"
-                        self.alertMessage = "The received file could not be stored. Pehaps try again?"
-                        throw error
-                    }
-                    
+            let receivedFileName = sourceUrl.lastPathComponent
+            if receivedFileName != app_state.sentFileName {
+                let sentFileNameWithoutExt = app_state.sentFileName.lowercased().replacingOccurrences(of: ".fmp12", with: "")
+                if receivedFileName.lowercased().contains(sentFileNameWithoutExt) {
+                    self.alertTitle = "Please try again"
+                    self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName))."
+                    throw AnError.runtimeError("suspicious filename")
                 } else {
-                    self.alertTitle = "Can't deal with this file"
-                    self.alertMessage = "A file has been sent to KioskBridge but no file was expected in the current state of the dock! File dismissed."
-                    throw AnError.runtimeError("File received at wrong stage")
+                    self.alertTitle = "This doesn't look right"
+                    self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileNamer (\(app_state.sentFileName))."
+                    throw AnError.runtimeError("wrong file")
                 }
-            } catch {
-                print(error)
-                if self.alertTitle != "" {
-                    DispatchQueue.main.async {
-                        self.alertShown = true
-                    }
-                }
+            }
+            
+            try clearAllDocuments()
 
+            // Copy incoming file to stored file
+            let fm = FileManager.default
+            var docUrl = try FileManager.default.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false)
+
+            // Explicitly declare this path target is a data file, not a nested directory structural component
+            docUrl = docUrl.appendingPathComponent(receivedFileName, isDirectory: false)
+
+            // Now that security scope is open, this move will succeed safely!
+            try fm.moveItem(at: sourceUrl, to: docUrl)            
+
+            print("File moved to \(docUrl.absoluteString)")
+            app_state.state = .needs_upload
+            app_state.save()
+            
+            self.alertTitle = "Thanks for the file"
+            self.alertMessage = "The file has been successfully received from FileMaker and looks right, as far as I can tell."
+            
+            DispatchQueue.main.async {
+                self.alertShown = true
+            }
+            
+        } else {
+            self.alertTitle = "Can't deal with this file"
+            self.alertMessage = "A file has been sent to KioskBridge but no file was expected in the current state of the dock!"
+            throw AnError.runtimeError("File received at wrong stage")
+        }
+    } catch {
+        print(error)
+        if self.alertTitle != "" {
+            DispatchQueue.main.async {
+                self.alertShown = true
             }
         }
-        openedUrl = nil
-        try?clearAllDocuments(InBox: true)
     }
+    
+    openedUrl = nil
+    try? clearAllDocuments(InBox: true)
+}
+
     
     func triggerTransition(transition_name: String) {
         if transition_name.contains("download") {
@@ -723,8 +734,9 @@ struct KioskBridgeView: View {
                                 appropriateFor: nil,
                                 create: false)
 
+        // UPDATED COMPLIANT CODE:
         if InBox {
-            documentsUrl.appendPathComponent("Inbox")
+            documentsUrl = documentsUrl.appendingPathComponent("Inbox", isDirectory: true)
         }
 
         let documents = try fm.contentsOfDirectory(atPath: documentsUrl.path)
