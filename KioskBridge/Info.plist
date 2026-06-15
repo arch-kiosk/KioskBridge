@@ -6,7 +6,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string></string>
+			<string>FileMaker Database</string>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
@@ -15,6 +15,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>

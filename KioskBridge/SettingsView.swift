@@ -6,6 +6,51 @@
 //
 
 import SwiftUI
+import OSLog
+import Foundation
+
+@MainActor final class LogStore: ObservableObject {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: LogStore.self)
+    )
+
+    var logFilename: URL?
+    
+    public func getFileName() -> URL? {
+        let filenameAsString = logFilename?.absoluteString
+        print("log file: ", filenameAsString ?? "")
+      return logFilename
+    }
+    
+    func export() {
+        do {
+            let store = try OSLogStore(scope: .currentProcessIdentifier)
+            let position = store.position(timeIntervalSinceLatestBoot: 1)
+            let entries = try store
+                .getEntries(at: position)
+                .compactMap { $0 as? OSLogEntryLog }
+                .filter { $0.subsystem == Bundle.main.bundleIdentifier! }
+                .map { "[\($0.date.formatted())] [\($0.category)] \($0.composedMessage)" }
+            let textData = entries.joined(separator: "\n")
+            let filename = FileManager.default.urls(for: .documentDirectory,
+                                                in: .userDomainMask)[0].appendingPathComponent("kioskbridgelog.txt")
+            let filenameAsString = filename.absoluteString
+            print("log file: ", filenameAsString)
+            print("Writing log to file name \(filenameAsString)")
+            do {
+                try textData.write(to: filename, atomically: true, encoding: String.Encoding.utf8)
+                logFilename = filename
+            } catch {
+                // failed to write file – bad permissions, bad filename, missing permissions, or more likely it can't be converted to the encoding
+                print("Error writing log lines to \(filename)")
+            }
+        } catch {
+            print("Error")
+            Self.logger.warning("\(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
 
 struct SettingsView: View {
     @ObservedObject var settings: KioskBridgeSettings
@@ -14,6 +59,9 @@ struct SettingsView: View {
     @State var askForDockChange = false
     @State var wrongDockId = false
     @ObservedObject var appState: AppState
+    @ObservedObject var logs: LogStore
+    @State var showLogButton = true
+    @State private var exportShown = false
     
     @Environment(\.dismiss) var dismiss
     
@@ -51,13 +99,42 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                     }
                     Spacer()
-                    Button("reset app state")  {
-                        askForReset = true
+                    VStack(alignment: .leading){
+                        Toggle(isOn: $settings.unsafe_mode) {
+                            Text("unsafe mode").frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
-                    .buttonStyle(BorderlessButtonStyle())
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .foregroundColor(Color("redish"))
-                    .padding()
+                    Spacer()
+                    Spacer()
+                    HStack(alignment: .top) {
+                        Button("reset app state")  {
+                            askForReset = true
+                        }
+                        .buttonStyle(BorderlessButtonStyle())
+                        //.frame(maxWidth: .infinity, alignment: .trailing)
+                        .foregroundColor(Color("redish"))
+                        //.padding()
+                        
+                        
+                           // and if you want to be explicit / future-proof...
+                           // .progressViewStyle(CircularProgressViewStyle())
+                        if (showLogButton && !exportShown) {
+                            
+                            Button("get 24h log") {
+                                showLogButton = false
+                                startExportLog()
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .foregroundColor(Color("redish"))
+                        } else {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                                    .foregroundColor(Color("redish"))
+                        }
+                        //.padding()
+                    }
                 }.disableAutocorrection(true)
             }
             .alert("Do you really want to connect to a different dock? KioskBridge will reset in this case.", isPresented: $askForDockChange) {
@@ -82,6 +159,9 @@ struct SettingsView: View {
                               message: Text("There is a space in the dock id. Spaces and other special characters are not supported right now."),
                               dismissButton: .default(Text("Got it!")))
             }
+            .sheet(isPresented: $exportShown) {
+                ShareView(filename: logs.getFileName() ?? URL(fileURLWithPath: ""))
+                            }
 
             
             .onChange(of: settings.dock_id) { [dock_id = settings.dock_id] newValue in
@@ -109,6 +189,20 @@ struct SettingsView: View {
             }
         }
     }
+    
+    func startExportLog() {
+        let log_queue = DispatchQueue(label: "com.kioskbridge.log_queue")
+        if (!exportShown) {
+            log_queue.async {
+                logs.export()
+                DispatchQueue.main.async {
+                    exportShown = true
+                    showLogButton = true
+                }
+            }
+        }
+    }
+    
     func saveAndDismiss() {
         if settings.dock_id.contains(" ") {
           wrongDockId = true
@@ -117,6 +211,20 @@ struct SettingsView: View {
         settings.save()
         appState.save()
         dismiss()
+    }
+
+}
+
+struct ShareView: UIViewControllerRepresentable {
+    typealias UIViewControllerType = UIActivityViewController
+
+    let filename: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [filename], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
     }
 }
 
@@ -127,6 +235,8 @@ struct settings_Previews: PreviewProvider {
         settings.server_url = "192.168.1.12"
         settings.user_id = "Lutz"
         settings.dock_id = "Lutz's X1"
-        return SettingsView(settings: settings, appState: app_state)
+        return SettingsView(settings: settings, appState: app_state, logs: LogStore())
     }
 }
+
+

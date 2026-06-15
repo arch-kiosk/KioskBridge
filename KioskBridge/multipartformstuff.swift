@@ -31,13 +31,13 @@ struct MultipartFormDataRequest {
         return fieldString
     }
 
-    func addFileField(named name: String, filename: String, data: Data) {
-        httpBody.append(dataFileField(named: name, filename: filename, data: data, mimeType: "application/octet-stream"))
+    func addFileField(named name: String, filename: String, data: inout Data) {
+        httpBody.append(dataFileField(named: name, filename: filename, data: &data, mimeType: "application/octet-stream"))
     }
 
     private func dataFileField(named name: String,
                                filename: String,
-                               data: Data,
+                               data: inout Data,
                                mimeType: String) -> Data {
         let fieldData = NSMutableData()
 
@@ -47,7 +47,7 @@ struct MultipartFormDataRequest {
         fieldData.append("\r\n")
         fieldData.append(data)
         fieldData.append("\r\n")
-
+        data.removeAll()
         return fieldData as Data
     }
     func asURLRequest() -> URLRequest {

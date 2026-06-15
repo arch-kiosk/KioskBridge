@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+
 @main
 struct KioskBridgeApp: App {
     @State var openedUrl: URL? = nil

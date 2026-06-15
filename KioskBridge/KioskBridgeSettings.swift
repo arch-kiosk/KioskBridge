@@ -18,7 +18,8 @@ class KioskBridgeSettings: ObservableObject, Codable {
     @Published var user_id: String = ""
     @Published var dock_id: String = ""
     @Published var password: String = ""
-    
+    @Published var unsafe_mode: Bool = false
+
     init() {
         server_url = ""
     }

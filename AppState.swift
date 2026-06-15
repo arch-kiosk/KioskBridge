@@ -33,7 +33,8 @@ class AppState: ObservableObject, Codable {
     @Published var transitions: [String] = []
     @Published var app_error_state: String = ""
     @Published var app_error_is_warning: Bool = false
-    
+    @Published var transitioning: Bool = false
+
     var debug = false
     
     init() {
