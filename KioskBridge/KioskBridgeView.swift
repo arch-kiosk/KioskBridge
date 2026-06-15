@@ -82,12 +82,15 @@ struct KioskBridgeView: View {
             } catch {
                 Self.logger.error("Connecting to Kiosk failed: \(error, privacy: .public)")
                 print("Error in connectToKiosk: \(error)")
-                alertMessage = "Error in connectToKiosk: \(error). This should not have happened. Please get support."
-                alertTitle = "Error connecting to Kiosk"
-                alertShown = true
-                
+                DispatchQueue.main.async {
+                    alertMessage = "Error in connectToKiosk: \(error). This should not have happened. Please get support."
+                    alertTitle = "Error connecting to Kiosk"
+                    alertShown = true
+                }
             }
-            runningTask = nil
+            DispatchQueue.main.async {
+                runningTask = nil
+            }
         }
     }
         
@@ -147,7 +150,6 @@ struct KioskBridgeView: View {
             })
             .sheet(isPresented: $isShareSheetPresented) {
                 ActivityView(isSheetPresented:$isShareSheetPresented, bridgeView:self, activityItems: [getDocumentUrl()!], applicationActivities: []).onDisappear() {
-//                    askUserIfSharingSuccessful()
                       isShareSheetPresented = false
                 }.onAppear() {
                     transitionSentToFileMaker()
@@ -156,27 +158,19 @@ struct KioskBridgeView: View {
             .alert(isPresented: $alertShown) {
                         Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("Got it!")))
                     }
-//            .alert("Did you successfully share the database with FileMaker?", isPresented: $askForSuccessfulShare) {
-//                Button("Yes") {
-//                    transitionSentToFileMaker()
-//
-//                }
-//                Button("No") {
-//                    askForSuccessfulShare = false
-//                }
-//            }
             .navigationTitle("KioskBridge")
             .onAppear() {
                 connectToKiosk()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .onChange(of: openedUrl) { newValue in
+            // Modernized double-argument tuple observation monitors
+            .onChange(of: openedUrl) { _, newValue in
                 Self.logger.info("openedUrl changed")
                 if (newValue != nil) {
                         processIncomingFile()
                 }
             }
-            .onChange(of: scenePhase) { newPhase in
+            .onChange(of: scenePhase) { _, newPhase in
                             if newPhase == .active {
                                 connectToKiosk()
                             } else if newPhase == .inactive {
@@ -199,8 +193,6 @@ struct KioskBridgeView: View {
     
     
     func refreshMemoryUsage(){
-        // The `TASK_VM_INFO_COUNT` and `TASK_VM_INFO_REV1_COUNT` macros are too
-        // complex for the Swift C importer, so we have to define them ourselves.
         let TASK_VM_INFO_COUNT = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
         guard let offset = MemoryLayout.offset(of: \task_vm_info_data_t.min_address) else {
             memoryUsed  =  ""
@@ -245,100 +237,106 @@ struct KioskBridgeView: View {
         askForSuccessfulShare = true
     }
     
-    
     func processIncomingFile() {
-        if (openedUrl != nil) {
-            isShareSheetPresented = false
-            Self.logger.notice("Received file: \(openedUrl!.absoluteString)")
-            self.alertTitle = ""
-            self.alertMessage = ""
-            
-            do {
-                if (app_state.state == .sent_to_filemaker ||
-                    app_state.state == .needs_upload ||
-                    (app_state.state == .is_uploaded && app_state.dock_state == .uploaded) ||
-                    (app_state.settings.unsafe_mode && app_state.dock_state == .prepared_for_download)
-                ) {
+        guard let sourceUrl = openedUrl else { return }
+        
+        isShareSheetPresented = false
+        Self.logger.notice("Received file: \(sourceUrl.absoluteString)")
+        self.alertTitle = ""
+        self.alertMessage = ""
+        
+        // 1. Gain secure authorization to access the incoming out-of-process file container
+        let accessSecureResource = sourceUrl.startAccessingSecurityScopedResource()
+        defer {
+            if accessSecureResource {
+                sourceUrl.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        do {
+            if (app_state.state == .sent_to_filemaker ||
+                app_state.state == .needs_upload ||
+                (app_state.state == .is_uploaded && app_state.dock_state == .uploaded) ||
+                (app_state.settings.unsafe_mode && app_state.dock_state == .prepared_for_download)
+            ) {
 
-                    //Check if filename matches
-                    let receivedFileName = openedUrl!.lastPathComponent
-                    if !app_state.settings.unsafe_mode && receivedFileName != app_state.sentFileName {
-                        let sentFileNameWithoutExt = app_state.sentFileName.lowercased().replacingOccurrences(of: ".fmp12", with: "")
-                        if receivedFileName.lowercased().contains(sentFileNameWithoutExt) {
-                            self.alertTitle = "Please try again"
-                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileMaker (\(app_state.sentFileName)). This can be due to an earlier internal error, so please try to send the file again after you closed this message."
-                            throw AnError.runtimeError("suspicious filename")
-                        } else {
-                            self.alertTitle = "This doesn't look right"
-                            self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileMaker (\(app_state.sentFileName)). Please try again with the correct file. "
-                            throw AnError.runtimeError("wrong file")
-                        }
+                let receivedFileName = sourceUrl.lastPathComponent
+                if !app_state.settings.unsafe_mode && receivedFileName != app_state.sentFileName {
+                    let sentFileNameWithoutExt = app_state.sentFileName.lowercased().replacingOccurrences(of: ".fmp12", with: "")
+                    if receivedFileName.lowercased().contains(sentFileNameWithoutExt) {
+                        self.alertTitle = "Please try again"
+                        self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileMaker (\(app_state.sentFileName)). This can be due to an earlier internal error, so please try to send the file again after you closed this message."
+                        throw AnError.runtimeError("suspicious filename")
+                    } else {
+                        self.alertTitle = "This doesn't look right"
+                        self.alertMessage = "The received file's name (\(receivedFileName)) does not match the name of the file that had been sent to FileMaker (\(app_state.sentFileName)). Please try again with the correct file. "
+                        throw AnError.runtimeError("wrong file")
                     }
-                    try clearAllDocuments()
+                }
+                try clearAllDocuments()
 
-                    //copy incoming file to stored file
+                do {
+                    let fm = FileManager.default
+                    var docUrl = try FileManager.default.url(
+                        for: .documentDirectory,
+                        in: .userDomainMask,
+                        appropriateFor: nil,
+                        create: false)
+                    
+                    // Explicitly append component to path as a non-directory file asset assignment
+                    docUrl = docUrl.appendingPathComponent(receivedFileName, isDirectory: false)
+                    
                     do {
-                        //erase existing file
-
-                        let fm = FileManager.default
-                        var docUrl = try FileManager.default.url(
-                            for: .documentDirectory,
-                            in: .userDomainMask,
-                            appropriateFor: nil,
-                            create: false)
-                        docUrl.appendPathComponent(receivedFileName)
-                        
-                        do {
-                            try fm.moveItem(at: openedUrl!, to: docUrl)
-                        } catch {
-                            Self.logger.error("Error when moving the file to \(docUrl.absoluteString): \(error.localizedDescription)")
-                            throw error
-                        }
-                        Self.logger.notice("File moved to: \(docUrl.path)")
-
-                        print("File moved to \(docUrl.path)")
-                        let attributes = try FileManager.default.attributesOfItem(atPath: docUrl.path)
-                        let size = attributes[.size] as? Double ?? 0
-                        Self.logger.notice("FileSize: \(size)")
-                        if (size < 10000000) {
-                            throw RuntimeError("The file \(docUrl.path) is suspiciously small. Something isn't right here.")
-                        }
-                        app_state.state = .needs_upload
-                        app_state.save()
-                        self.alertTitle = "Thanks for the file"
-                        self.alertMessage = "The file has been successfully received from FileMaker and looks right, as far as I can tell."
-                        DispatchQueue.main.async {
-                            self.alertShown = true
-                        }
+                        try fm.moveItem(at: sourceUrl, to: docUrl)
                     } catch {
-                        self.alertTitle = "Internal Error"
-                        self.alertMessage = "The received file could not be stored or processed (\(error.localizedDescription)). Perhaps try again?"
+                        Self.logger.error("Error when moving the file to \(docUrl.absoluteString): \(error.localizedDescription)")
                         throw error
                     }
-                    
-                } else {
-                    self.alertTitle = "Can't deal with this file"
-                    self.alertMessage = "A file has been sent to KioskBridge but no file was expected in the current state of the dock! File dismissed."
-                    throw AnError.runtimeError("File received at wrong stage")
-                }
-            } catch {
-                print(error)
-                Self.logger.error("processIncomingFile: \(error, privacy: .public)")
-                if self.alertTitle != "" {
+                    Self.logger.notice("File moved to: \(docUrl.path)")
+
+                    print("File moved to \(docUrl.path)")
+                    let attributes = try FileManager.default.attributesOfItem(atPath: docUrl.path)
+                    let size = attributes[.size] as? Double ?? 0
+                    Self.logger.notice("FileSize: \(size)")
+                    if (size < 10000000) {
+                        throw RuntimeError("The file \(docUrl.path) is suspiciously small. Something isn't right here.")
+                    }
+                    app_state.state = .needs_upload
+                    app_state.save()
+                    self.alertTitle = "Thanks for the file"
+                    self.alertMessage = "The file has been successfully received from FileMaker and looks right, as far as I can tell."
                     DispatchQueue.main.async {
                         self.alertShown = true
                     }
+                } catch {
+                    self.alertTitle = "Internal Error"
+                    self.alertMessage = "The received file could not be stored or processed (\(error.localizedDescription)). Perhaps try again?"
+                    throw error
                 }
-
+                
+            } else {
+                self.alertTitle = "Can't deal with this file"
+                self.alertMessage = "A file has been sent to KioskBridge but no file was expected in the current state of the dock! File dismissed."
+                throw AnError.runtimeError("File received at wrong stage")
+            }
+        } catch {
+            print(error)
+            Self.logger.error("processIncomingFile: \(error, privacy: .public)")
+            if self.alertTitle != "" {
+                DispatchQueue.main.async {
+                    self.alertShown = true
+                }
             }
         }
+        
         openedUrl = nil
-        try?clearAllDocuments(InBox: true)
+        try? clearAllDocuments(InBox: true)
     }
     
     func triggerTransition(transition_name: String) {
         Self.logger.notice("Triggering Transition \(transition_name, privacy: .public)")
         if transition_name.contains("download") {
+            // todo: this is a blind try! Do better and implement proper error handling
             try! transitionDownload()
             app_state.transitioning = false
             return
@@ -362,7 +360,6 @@ struct KioskBridgeView: View {
 
     }
 
-    
     struct DockOptionsView: View {
         @ObservedObject var app_state: AppState
 
@@ -471,10 +468,10 @@ struct KioskBridgeView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        request.setValue(
-            "Bearer <<access-token>>",
-            forHTTPHeaderField: "Authentication"
-        )
+        // request.setValue(
+        //     "Bearer <<access-token>>",
+        //     forHTTPHeaderField: "Authentication"
+        // )
         let sessionConfiguration = URLSessionConfiguration.default // 5
 
         sessionConfiguration.httpAdditionalHeaders = [
@@ -538,10 +535,10 @@ struct KioskBridgeView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        request.setValue(
-            "Bearer <<access-token>>",
-            forHTTPHeaderField: "Authentication"
-        )
+        // request.setValue(
+        //     "Bearer <<access-token>>",
+        //     forHTTPHeaderField: "Authentication"
+        // )
         let sessionConfiguration = URLSessionConfiguration.default
 
         sessionConfiguration.httpAdditionalHeaders = [
@@ -550,69 +547,78 @@ struct KioskBridgeView: View {
         let session = URLSession(configuration: sessionConfiguration)
         downloadTask = session.downloadTask(with: url) { localURL, urlResponse, error in
             print(error ?? "no error when downloading")
-            observation?.invalidate()
-            downloadTask = nil
+            
+            // Invalidate and clear variables safely
+            DispatchQueue.main.async {
+                self.observation?.invalidate()
+                self.downloadTask = nil
+            }
+            
             guard let urlResponse = urlResponse else {
-                alertTitle = "The download wasn't sucessful"
-                alertMessage = "The download's did not come back with a urlResponse. Something is wrong here. This should not happen."
-                Self.logger.error("The download's did not come back with a urlResponse. Something is wrong here. This should not happen.")
-                alertShown = true
+                DispatchQueue.main.async {
+                    self.alertTitle = "The download wasn't sucessful"
+                    self.alertMessage = "The download did not come back with a urlResponse. Something is wrong here. This should not happen."
+                    self.alertShown = true
+                }
+                Self.logger.error("The download did not come back with a urlResponse.")
                 return
             }
+            
             if let httpResponse = urlResponse as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                alertTitle = "The download wasn't sucessful"
-                alertMessage = "The server did not send the file (http error code \(httpResponse.statusCode)."
-                Self.logger.error("The server did not send the file (http error code \(httpResponse.statusCode, privacy: .public).")
-                alertShown = true
+                DispatchQueue.main.async {
+                    self.alertTitle = "The download wasn't sucessful"
+                    self.alertMessage = "The server did not send the file (http error code \(httpResponse.statusCode))."
+                    self.alertShown = true
+                }
+                Self.logger.error("The server did not send the file.")
                 return
             }
 
-            guard let filename = urlResponse.suggestedFilename else {
-                alertTitle = "The download wasn't sucessful"
-                alertMessage = "The download's response did not have a suggestedFilename attribute. Something is wrong here. This should not happen."
-                Self.logger.error("The download's response did not have a suggestedFilename attribute. Something is wrong here. This should not happen.")
-                alertShown = true
+            guard let filename = urlResponse.suggestedFilename, !filename.isEmpty else {
+                DispatchQueue.main.async {
+                    self.alertTitle = "The download wasn't sucessful"
+                    self.alertMessage = "The download did not suggest a valid filename."
+                    self.alertShown = true
+                }
+                Self.logger.error("The download did not suggest a valid filename.")
                 return
             }
-            if filename == "" {
-                alertTitle = "The download wasn't sucessful"
-                alertMessage = "The download did not suggest a filename, so something is wrong here. This should not happen."
-                Self.logger.error("The download did not suggest a filename, so something is wrong here. This should not happen.")
-
-                alertShown = true
-                return
-            }
+            
             guard let localURL = localURL else {
-                print("no local url")
                 Self.logger.error("no local url in transitionDownload")
                 return
             }
+            
             do {
-                observation?.invalidate()
-                downloadTask = nil
                 try clearAllDocuments()
 
-                let documentsURL = try
-                    FileManager.default.url(for: .documentDirectory,
-                                            in: .userDomainMask,
-                                                appropriateFor: nil,
-                                                create: false)
-                let savedURL = documentsURL.appendingPathComponent(filename)
+                let documentsURL = try FileManager.default.url(
+                    for: .documentDirectory,
+                    in: .userDomainMask,
+                    appropriateFor: nil,
+                    create: false
+                )
+                let savedURL = documentsURL.appendingPathComponent(filename, isDirectory: false)
                 let fm = FileManager.default
                 
                 try fm.moveItem(at: localURL, to: savedURL)
-                runningTask = Task {
-                    await tellServerDownloadWasSuccessful()
-                    runningTask = nil
+                
+                DispatchQueue.main.async {
+                    self.runningTask = Task {
+                        await tellServerDownloadWasSuccessful()
+                        self.runningTask = nil
+                    }
                 }
             } catch {
                 print("Error in transitionDownload: \(error)")
                 Self.logger.error("Error in transitionDownload: \(error)")
             }
         }
+
+        // Ensure the progress observation assignment also handles dispatch safety securely
         observation = downloadTask!.progress.observe(\.fractionCompleted) { observationProgress, _ in
             DispatchQueue.main.async {
-                taskProgress = observationProgress.fractionCompleted
+                self.taskProgress = observationProgress.fractionCompleted
             }
         }
         downloadTask!.resume()
@@ -639,10 +645,10 @@ struct KioskBridgeView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        request.setValue(
-            "Bearer <<access-token>>",
-            forHTTPHeaderField: "Authentication"
-        )
+        // request.setValue(
+        //     "Bearer <<access-token>>",
+        //     forHTTPHeaderField: "Authentication"
+        // )
         let sessionConfiguration = URLSessionConfiguration.default
 
         sessionConfiguration.httpAdditionalHeaders = [
@@ -653,9 +659,11 @@ struct KioskBridgeView: View {
         do {
             let (data, response) = try await session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                alertTitle = "Error in tellServerDownloadWasSuccessful"
-                alertMessage = "Error informing Server about a successful download: \(httpResponse.statusCode)"
-                alertShown = true
+                DispatchQueue.main.async {
+                    self.alertTitle = "Error in tellServerDownloadWasSuccessful"
+                    self.alertMessage = "Error informing Server about a successful download: \(httpResponse.statusCode)"
+                    self.alertShown = true
+                }
                 return
             } else {
                 guard let response = try? JSONDecoder().decode(ApiDownloadWorkstationFinsishedResponse.self, from: data) else {
@@ -670,9 +678,11 @@ struct KioskBridgeView: View {
                         Self.logger.notice("app_state changed to .downloaded")
                     }
                 } else {
-                    alertTitle = "Error in tellServerDownloadWasSuccessful"
-                    alertMessage = "The server did not acknowledge the download. That's pretty strange and should not have happened."
-                    alertShown = true
+                    DispatchQueue.main.async {
+                        self.alertTitle = "Error in tellServerDownloadWasSuccessful"
+                        self.alertMessage = "The server did not acknowledge the download. That's pretty strange and should not have happened."
+                        self.alertShown = true
+                    }
                 }
             }
         } catch {
@@ -734,11 +744,8 @@ struct KioskBridgeView: View {
         refreshMemoryUsage()
         queue.async {
             do {
-                // var request: URLRequest
                 let mimeType="application/octet-stream"
-                let named="file"
                 let boundary: String = UUID().uuidString
-                // let mpfRequest = MultipartFormDataRequest(url: url)
                 Self.logger.notice("transitionUpload: creating fileData")
                 var fileData: Data? = try Data(contentsOf: urlFMP12)
                 Self.logger.notice("transitionUpload: creating mpfRequest")
@@ -751,10 +758,8 @@ struct KioskBridgeView: View {
                 httpBody.append("\r\n")
                 httpBody.append("--\(boundary)--")
 
-                // mpfRequest.addFileField(named: "file", filename: url.lastPathComponent, data: &fileData!)
                 fileData?.removeAll()
                 fileData = nil
-                // request = mpfRequest.asURLRequest()
 
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
@@ -762,13 +767,16 @@ struct KioskBridgeView: View {
 
                 request.httpBody = httpBody as Data
                 Self.logger.notice("transitionUpload: adding Bearer Headers")
+                // request.setValue(
+                //     "Bearer <<access-token>>",
+                //     forHTTPHeaderField: "Authentication"
+                // )
                 request.setValue(
-                    "Bearer <<access-token>>",
-                    forHTTPHeaderField: "Authentication"
+                    "Bearer \(app_state.api_token)",
+                    forHTTPHeaderField: "Authorization"
                 )
 
                 DispatchQueue.main.async {
-
                     refreshMemoryUsage()
                     startUploadTask(request: &request)
                 }
@@ -777,6 +785,7 @@ struct KioskBridgeView: View {
             }
         }
     }
+    
     
     func startUploadTask(request: inout URLRequest) {
         let sessionConfiguration = URLSessionConfiguration.default
@@ -792,48 +801,52 @@ struct KioskBridgeView: View {
         uploadTask = session.dataTask(
                     with: request,
                     completionHandler: { data, response, error in
-                        // Validate response and call handler
-                        app_state.transitioning = false
+                        // Return tracking flags back to main thread safely
+                        DispatchQueue.main.async {
+                            self.app_state.transitioning = false
+                            self.observation?.invalidate()
+                            self.uploadTask = nil
+                        }
 
-                        observation?.invalidate()
-                        uploadTask?.cancel()
-                        uploadTask = nil
                         if let error = error {
-                            alertTitle = "Upload failed"
-                            alertMessage = "The upload of the file failed due to a network error."
-                            Self.logger.error("Error in transitionUpload: \(alertMessage, privacy: .public)")
-
-                            if let httpResponse = response as? HTTPURLResponse {
-                                alertMessage += " (\(String(httpResponse.statusCode))"
-                            } else {
-                                alertMessage += " \(error)"
+                            DispatchQueue.main.async {
+                                self.alertTitle = "Upload failed"
+                                self.alertMessage = "The upload of the file failed due to a network error."
+                                if let httpResponse = response as? HTTPURLResponse {
+                                    self.alertMessage += " (\(String(httpResponse.statusCode)))"
+                                } else {
+                                    self.alertMessage += " \(error)"
+                                }
+                                self.alertShown = true
                             }
-                            alertShown = true
+                            Self.logger.error("Error in transitionUpload: \(error.localizedDescription)")
                             return
                         }
                         guard let response = response else {
-                            alertTitle = "The upload wasn't sucessful"
-                            alertMessage = "The upload did not come back with a urlResponse. Something is wrong here. This should not happen."
-                            Self.logger.error("Error in transitionUpload: \(alertMessage, privacy: .public)")
-                            alertShown = true
+                            DispatchQueue.main.async {
+                                self.alertTitle = "The upload wasn't sucessful"
+                                self.alertMessage = "The upload did not come back with a urlResponse. Something is wrong here. This should not happen."
+                                self.alertShown = true
+                            }
                             return
                         }
                         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                            alertTitle = "The upload wasn't sucessful"
-                            alertMessage = "The server did not accept the file (http error code \(httpResponse.statusCode)."
-                            Self.logger.error("Error in transitionUpload: \(alertMessage, privacy: .public)")
-                            alertShown = true
+                            DispatchQueue.main.async {
+                                self.alertTitle = "The upload wasn't sucessful"
+                                self.alertMessage = "The server did not accept the file (http error code \(httpResponse.statusCode))."
+                                self.alertShown = true
+                            }
                             return
                         }
                         if let data = data {
                             do {
-                                let result:ApiUploadResponse = try JSONDecoder().decode(ApiUploadResponse.self, from: data)
+                                let result: ApiUploadResponse = try JSONDecoder().decode(ApiUploadResponse.self, from: data)
                                 if !result.success {
-                                    alertTitle = "Kiosk did not accept the upload"
-                                    alertMessage = result.message
-                                    Self.logger.error("Error in transitionUpload: Kiosk did not accept the upload: \(alertMessage, privacy: .public)")
-
-                                    alertShown = true
+                                    DispatchQueue.main.async {
+                                        self.alertTitle = "Kiosk did not accept the upload"
+                                        self.alertMessage = result.message
+                                        self.alertShown = true
+                                    }
                                     return
                                 } else {
                                     DispatchQueue.main.async {
@@ -857,9 +870,168 @@ struct KioskBridgeView: View {
         }
 
         uploadTask!.resume()
+    }  
 
+    // GEMINI REPLACEMENTS THAT WORK WITHOUT MEMORY ISSUES
+    // 1. REPLACE your startUploadRequest with this disk-streaming equivalent
+    func newStartUploadRequest(url: URL, urlFMP12: URL) {
+        Self.logger.notice("startUploadRequest")
+        
+        guard let url = URL(string: "\(app_state.settings.server_url)\(api_workstation_upload)") else {
+            alertTitle = "Error in startUploadRequest"
+            alertMessage = "Cannot build URL. This should not have happened."
+            alertShown = true
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        Self.logger.notice("transitionUpload: creating multipart file on disk")
+        
+        do {
+            // Create a temporary file path to construct the multi-part body on disk instead of in RAM
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempUploadFileURL = tempDir.appendingPathComponent("upload_\(UUID().uuidString).tmp")
+            
+            // Create the file or clear any existing data
+            FileManager.default.createFile(atPath: tempUploadFileURL.path, contents: nil, attributes: nil)
+            let fileHandle = try FileHandle(forWritingTo: tempUploadFileURL)
+            
+            // Write opening boundary metadata
+            var headerString = ""
+            headerString += "--\(boundary)\r\n"
+            headerString += "Content-Disposition: form-data; name=\"file\"; filename=\"\(urlFMP12.lastPathComponent)\"\r\n"
+            headerString += "Content-Type: application/octet-stream\r\n\r\n"
+            if let headerData = headerString.data(using: .utf8) {
+                fileHandle.write(headerData)
+            }
+            
+            // Append the actual database file stream directly
+            let fmp12Handle = try FileHandle(forReadingFrom: urlFMP12)
+            while let chunk = try fmp12Handle.read(upToCount: 65536), !chunk.isEmpty {
+                fileHandle.write(chunk)
+            }
+            try fmp12Handle.close()
+            
+            // Write closing boundary metadata
+            var footerString = "\r\n--\(boundary)--\r\n"
+            if let footerData = footerString.data(using: .utf8) {
+                fileHandle.write(footerData)
+            }
+            try fileHandle.close()
+            
+            DispatchQueue.main.async {
+                refreshMemoryUsage()
+                // Hand the temporary file over to the upload task
+                newStartUploadTask(request: &request, fromFile: tempUploadFileURL)
+            }
+            
+        } catch {
+            Self.logger.error("Failed to prepare file streaming container: \(error.localizedDescription)")
+            alertTitle = "Upload Preparation Failed"
+            alertMessage = "Could not read or process the database file safely: \(error.localizedDescription)"
+            alertShown = true
+        }
     }
-    
+
+    // GEMINI REPLACEMENTS THAT WORK WITHOUT MEMORY ISSUES
+    func newStartUploadTask(request: inout URLRequest, fromFile fileURL: URL) {
+        let sessionConfiguration = URLSessionConfiguration.default
+        
+        sessionConfiguration.httpAdditionalHeaders = [
+            "Authorization": "Bearer \(app_state.api_token)",
+            "X-CSRFToken": app_state.csrf_token
+        ]
+        Self.logger.notice("transitionUpload: creating session")
+        let session = URLSession(configuration: sessionConfiguration)
+
+        Self.logger.notice("transitionUpload: creating uploadTask from file stream")
+        
+        // Changing from dataTask(with:) to uploadTask(with:fromFile:)
+        uploadTask = session.uploadTask(
+                    with: request,
+                    fromFile: fileURL,
+                    completionHandler: { data, response, error in
+                        
+                        // Clean up the temporary file from the disk storage
+                        try? FileManager.default.removeItem(at: fileURL)
+                        
+                        DispatchQueue.main.async {
+                            self.app_state.transitioning = false
+                            self.observation?.invalidate()
+                            self.uploadTask = nil
+                        }
+
+                        if let error = error {
+                            DispatchQueue.main.async {
+                                self.alertTitle = "Upload failed"
+                                self.alertMessage = "The upload of the file failed due to a network error."
+                                if let httpResponse = response as? HTTPURLResponse {
+                                    self.alertMessage += " (\(String(httpResponse.statusCode)))"
+                                } else {
+                                    self.alertMessage += " \(error)"
+                                }
+                                self.alertShown = true
+                            }
+                            Self.logger.error("Error in transitionUpload: \(error.localizedDescription)")
+                            return
+                        }
+                        guard let response = response else {
+                            DispatchQueue.main.async {
+                                self.alertTitle = "The upload wasn't sucessful"
+                                self.alertMessage = "The upload did not come back with a urlResponse. Something is wrong here. This should not happen."
+                                self.alertShown = true
+                            }
+                            return
+                        }
+                        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                            DispatchQueue.main.async {
+                                self.alertTitle = "The upload wasn't sucessful"
+                                self.alertMessage = "The server did not accept the file (http error code \(httpResponse.statusCode))."
+                                self.alertShown = true
+                            }
+                            return
+                        }
+                        if let data = data {
+                            do {
+                                let result: ApiUploadResponse = try JSONDecoder().decode(ApiUploadResponse.self, from: data)
+                                if !result.success {
+                                    DispatchQueue.main.async {
+                                        self.alertTitle = "Kiosk did not accept the upload"
+                                        self.alertMessage = result.message
+                                        self.alertShown = true
+                                    }
+                                    return
+                                } else {
+                                    DispatchQueue.main.async {
+                                        refreshMemoryUsage()
+                                        Self.logger.error("transitionUpload: Upload successful")
+                                        app_state.state = .is_uploaded
+                                        app_state.save()
+                                        Self.logger.error("transitionUpload: app_state changed to .is_uploaded")
+                                    }
+                                }
+                            } catch {
+                                Self.logger.error("Exception A in transitionUpload: \(error, privacy: .public)")
+                            }
+                        }
+                    }
+                )
+        
+        observation = uploadTask!.progress.observe(\.fractionCompleted) { observationProgress, _ in
+            DispatchQueue.main.async {
+                taskProgress = observationProgress.fractionCompleted
+            }
+        }
+
+        uploadTask!.resume()
+    }
+    // END GEMINI REPLACEMENTS THAT WORK WITHOUT MEMORY ISSUES
+
     func getDocumentUrl() -> URL? {
         let fm = FileManager.default
         do {
@@ -871,7 +1043,7 @@ struct KioskBridgeView: View {
             
             let documents = try fm.contentsOfDirectory(atPath: documentsUrl.path)
             for doc in documents {
-                let docPath = documentsUrl.appendingPathComponent(doc)
+                let docPath = documentsUrl.appendingPathComponent(doc, isDirectory: false)
                 if !docPath.isDirectory {
                     return docPath
                 }
@@ -888,17 +1060,18 @@ struct KioskBridgeView: View {
         let fm = FileManager.default
         var documentsUrl = try FileManager.default.url(
             for: .documentDirectory,
-                                in: .userDomainMask,
-                                appropriateFor: nil,
-                                create: false)
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: false)
 
         if InBox {
-            documentsUrl.appendPathComponent("Inbox")
+            // Assign explicitly as a sub-directory component mutation path
+            documentsUrl = documentsUrl.appendingPathComponent("Inbox", isDirectory: true)
         }
 
         let documents = try fm.contentsOfDirectory(atPath: documentsUrl.path)
         for doc in documents {
-            let docPath = documentsUrl.appendingPathComponent(doc)
+            let docPath = documentsUrl.appendingPathComponent(doc, isDirectory: false)
             if (!docPath.isDirectory) {
                 print("Deleting file \(docPath)")
                 try fm.removeItem(at: docPath)
@@ -934,7 +1107,6 @@ struct ActivityView: UIViewControllerRepresentable {
 
 }
 
-
 struct SettingsDisplayView: View {
     @ObservedObject var settings: KioskBridgeSettings
     @Binding var settings_shown: Bool
@@ -942,7 +1114,6 @@ struct SettingsDisplayView: View {
     var body: some View {
         HStack {
             Label("\(settings.user_id)", systemImage: settings.user_image)
-//                .padding(.all)
             Spacer()
             Label("\(settings.dock_id)", systemImage: settings.dock_image)
                 .padding(.horizontal)
@@ -957,7 +1128,6 @@ struct SettingsDisplayView: View {
             .background(settings.unsafe_mode ? Color(red:0.7, green: 0,blue: 0) : Color.clear)
             .foregroundColor(settings.unsafe_mode ? Color(red:1, green: 1,blue: 0) : Color.black)
         }
-        
     }
 }
 
